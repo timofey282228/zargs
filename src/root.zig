@@ -5,6 +5,7 @@ pub fn Argument(comptime T: type) type {
         comptime type: type = T,
         name: []const u8,
         default: ?T = null,
+        interrupts_parsing: bool = false,
         parsed_with: ?fn ([]const u8) anyerror!T = null,
     };
 }
@@ -83,6 +84,9 @@ fn ArgumentParser(comptime configuration: anytype) type {
                             try defaultParse(argument.type, arg_value_str);
 
                         @field(args_in_parsing, name) = parsed_arg_value;
+                        if (argument.interrupts_parsing) {
+                            break :argsLoop;
+                        }
                         continue :argsLoop;
                     }
                 }
@@ -98,6 +102,8 @@ fn ArgumentParser(comptime configuration: anytype) type {
                 if (@field(args_in_parsing, argument.name) == null) {
                     if (argument.default) |default| {
                         @field(parsed_args, argument.name) = default;
+                    } else if (@typeInfo(argument.type) == .optional) {
+                        @field(parsed_args, argument.name) = null;
                     } else {
                         std.debug.print("Missing argument --{s}\n", .{argument.name});
                         return error.MissingArgument;
@@ -114,6 +120,10 @@ fn ArgumentParser(comptime configuration: anytype) type {
 
 fn defaultParse(comptime T: type, arg: []const u8) !T {
     switch (@typeInfo(T)) {
+        .optional => |t| {
+            const parsed = try defaultParse(t.child, arg);
+            return parsed;
+        },
         .int => {
             if (std.mem.eql(u8, arg[0..@min(2, arg.len)], "0x"))
                 return try std.fmt.parseInt(T, arg[2..], 16)
