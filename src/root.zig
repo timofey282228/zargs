@@ -134,6 +134,13 @@ fn defaultParse(comptime T: type, arg: []const u8) !T {
             else
                 return try std.fmt.parseInt(T, arg, 10);
         },
+        .bool => {
+            if (std.mem.eql(u8, arg, "true") or std.mem.eql(u8, arg, "1") or std.mem.eql(u8, arg, "yes"))
+                return true;
+            if (std.mem.eql(u8, arg, "false") or std.mem.eql(u8, arg, "0") or std.mem.eql(u8, arg, "no"))
+                return false;
+            return error.InvalidValue;
+        },
         .@"enum" => {
             return std.meta.stringToEnum(T, arg) orelse return error.InvalidEnumVariant;
         },
